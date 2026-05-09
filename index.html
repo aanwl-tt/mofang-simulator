@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>魔方模拟器</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+    overflow: hidden;
+    height: 100vh;
+    color: #fff;
+    user-select: none;
+}
+#canvas-container {
+    width: 100vw;
+    height: 100vh;
+    display: block;
+}
+#ui {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 16px 16px 20px;
+    background: linear-gradient(transparent, rgba(0,0,0,0.7));
+    pointer-events: none;
+    z-index: 10;
+}
+#ui > * { pointer-events: auto; }
+#controls {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 6px;
+    max-width: 560px;
+    margin: 0 auto;
+}
+.move-btn {
+    width: 44px;
+    height: 44px;
+    border: none;
+    border-radius: 8px;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform 0.1s, box-shadow 0.1s;
+    color: rgba(255,255,255,0.9);
+    text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+.move-btn:active { transform: scale(0.92); }
+.move-btn.prime::after { content: "'"; }
+.btn-group {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+    background: rgba(255,255,255,0.06);
+    border-radius: 10px;
+    padding: 4px;
+}
+.btn-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: rgba(255,255,255,0.35);
+    width: 16px;
+    text-align: center;
+}
+#bottom-row {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 12px;
+    margin-top: 10px;
+    flex-wrap: wrap;
+}
+.action-btn {
+    padding: 8px 20px;
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 8px;
+    background: rgba(255,255,255,0.08);
+    color: #fff;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+.action-btn:hover { background: rgba(255,255,255,0.16); }
+.action-btn.danger:hover { background: rgba(255,60,60,0.25); border-color: rgba(255,60,60,0.4); }
+#move-counter {
+    font-size: 14px;
+    color: rgba(255,255,255,0.6);
+    font-weight: 500;
+}
+#move-counter span { color: #fff; font-weight: 700; }
+
+/* Face button colors */
+.btn-U { background: #e0e0e0; color: #222; text-shadow: none; }
+.btn-U:hover { background: #fff; }
+.btn-D { background: #ffd500; }
+.btn-D:hover { background: #ffe44d; }
+.btn-R { background: #b71234; }
+.btn-R:hover { background: #d4153e; }
+.btn-L { background: #ff5800; }
+.btn-L:hover { background: #ff7a33; }
+.btn-F { background: #009e60; }
+.btn-F:hover { background: #00c87a; }
+.btn-B { background: #0046ad; }
+.btn-B:hover { background: #0058d9; }
+
+#title {
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 18px;
+    font-weight: 700;
+    color: rgba(255,255,255,0.6);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    z-index: 10;
+    pointer-events: none;
+}
+#key-hint {
+    position: fixed;
+    bottom: 120px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 12px;
+    color: rgba(255,255,255,0.2);
+    z-index: 10;
+    pointer-events: none;
+    text-align: center;
+}
+@media (max-width: 500px) {
+    #controls { gap: 4px; }
+    .move-btn { width: 38px; height: 38px; font-size: 13px; }
+    .btn-group { padding: 3px; gap: 3px; }
+    .action-btn { padding: 6px 14px; font-size: 12px; }
+    #move-counter { font-size: 12px; }
+    #title { font-size: 14px; top: 12px; }
+    #key-hint { display: none; }
+}
+</style>
+</head>
+<body>
+
+<div id="title">魔方模拟器</div>
+
+<div id="canvas-container"></div>
+
+<div id="key-hint">键盘快捷键: U D R L F B (Shift=逆时针) | 鼠标拖拽旋转视角</div>
+
+<div id="ui">
+    <div id="controls">
+        <!-- U -->
+        <div class="btn-group">
+            <button class="move-btn btn-U" data-move="U">U</button>
+            <button class="move-btn btn-U prime" data-move="U'">U'</button>
+        </div>
+        <!-- D -->
+        <div class="btn-group">
+            <button class="move-btn btn-D" data-move="D">D</button>
+            <button class="move-btn btn-D prime" data-move="D'">D'</button>
+        </div>
+        <!-- R -->
+        <div class="btn-group">
+            <button class="move-btn btn-R" data-move="R">R</button>
+            <button class="move-btn btn-R prime" data-move="R'">R'</button>
+        </div>
+        <!-- L -->
+        <div class="btn-group">
+            <button class="move-btn btn-L" data-move="L">L</button>
+            <button class="move-btn btn-L prime" data-move="L'">L'</button>
+        </div>
+        <!-- F -->
+        <div class="btn-group">
+            <button class="move-btn btn-F" data-move="F">F</button>
+            <button class="move-btn btn-F prime" data-move="F'">F'</button>
+        </div>
+        <!-- B -->
+        <div class="btn-group">
+            <button class="move-btn btn-B" data-move="B">B</button>
+            <button class="move-btn btn-B prime" data-move="B'">B'</button>
+        </div>
+    </div>
+
+    <div id="bottom-row">
+        <button class="action-btn" id="btn-scramble">🔀 打乱</button>
+        <button class="action-btn danger" id="btn-reset">↺ 重置</button>
+        <div id="move-counter">步数: <span id="move-count">0</span></div>
+    </div>
+</div>
+
+<script type="importmap">
+{
+    "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.163.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.163.0/examples/jsm/"
+    }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+// ===== Colors =====
+const COLORS = {
+    right:  0xB71234,
+    left:   0xFF5800,
+    up:     0xFFFFFF,
+    down:   0xFFD500,
+    front:  0x009E60,
+    back:   0x0046AD,
+    inner:  0x111111,
+};
+
+// ===== Scene Setup =====
+const container = document.getElementById('canvas-container');
+const scene = new THREE.Scene();
+
+const camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.1, 100);
+camera.position.set(4.5, 3.5, 4.5);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setClearColor(0x0f0c29);
+container.appendChild(renderer.domElement);
+
+// Lights
+const ambient = new THREE.AmbientLight(0xffffff, 0.5);
+scene.add(ambient);
+
+const mainLight = new THREE.DirectionalLight(0xffffff, 1.2);
+mainLight.position.set(5, 10, 7);
+scene.add(mainLight);
+
+const fillLight = new THREE.DirectionalLight(0x8888ff, 0.4);
+fillLight.position.set(-5, -3, -5);
+scene.add(fillLight);
+
+const rimLight = new THREE.DirectionalLight(0xffffff, 0.3);
+rimLight.position.set(-3, 5, -4);
+scene.add(rimLight);
+
+// Controls
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.1;
+controls.minDistance = 4;
+controls.maxDistance = 15;
+controls.target.set(0, 0, 0);
+controls.update();
+
+// ===== Cube State =====
+const cubies = [];
+let isAnimating = false;
+let moveCount = 0;
+let moveQueue = [];
+let isScrambling = false;
+
+// ===== Move Definitions =====
+const MOVES = {
+    'R':  { axis: 'x', layer:  1, angle: -Math.PI / 2 },
+    "R'": { axis: 'x', layer:  1, angle:  Math.PI / 2 },
+    'L':  { axis: 'x', layer: -1, angle:  Math.PI / 2 },
+    "L'": { axis: 'x', layer: -1, angle: -Math.PI / 2 },
+    'U':  { axis: 'y', layer:  1, angle:  Math.PI / 2 },
+    "U'": { axis: 'y', layer:  1, angle: -Math.PI / 2 },
+    'D':  { axis: 'y', layer: -1, angle:  Math.PI / 2 },
+    "D'": { axis: 'y', layer: -1, angle: -Math.PI / 2 },
+    'F':  { axis: 'z', layer:  1, angle: -Math.PI / 2 },
+    "F'": { axis: 'z', layer:  1, angle:  Math.PI / 2 },
+    'B':  { axis: 'z', layer: -1, angle:  Math.PI / 2 },
+    "B'": { axis: 'z', layer: -1, angle: -Math.PI / 2 },
+};
+
+// ===== Cubie Creation =====
+function createCubie(x, y, z) {
+    const size = 0.92;
+    const geo = new THREE.BoxGeometry(size, size, size);
+
+    const getMat = (color) => new THREE.MeshStandardMaterial({
+        color,
+        roughness: 0.25,
+        metalness: 0.05,
+    });
+
+    const materials = [
+        getMat(x ===  1 ? COLORS.right  : COLORS.inner),  // +x
+        getMat(x === -1 ? COLORS.left   : COLORS.inner),  // -x
+        getMat(y ===  1 ? COLORS.up     : COLORS.inner),  // +y
+        getMat(y === -1 ? COLORS.down   : COLORS.inner),  // -y
+        getMat(z ===  1 ? COLORS.front  : COLORS.inner),  // +z
+        getMat(z === -1 ? COLORS.back   : COLORS.inner),  // -z
+    ];
+
+    const mesh = new THREE.Mesh(geo, materials);
+    mesh.position.set(x, y, z);
+
+    // Black wireframe edges for definition
+    const edgeGeo = new THREE.EdgesGeometry(geo);
+    const edgeMat = new THREE.LineBasicMaterial({ color: 0x000000 });
+    const edges = new THREE.LineSegments(edgeGeo, edgeMat);
+    mesh.add(edges);
+
+    return mesh;
+}
+
+function buildCube() {
+    // Remove old cubies
+    for (const c of cubies) {
+        scene.remove(c);
+    }
+    cubies.length = 0;
+    moveCount = 0;
+    updateMoveCounter();
+
+    for (let x = -1; x <= 1; x++) {
+        for (let y = -1; y <= 1; y++) {
+            for (let z = -1; z <= 1; z++) {
+                const cubie = createCubie(x, y, z);
+                scene.add(cubie);
+                cubies.push(cubie);
+            }
+        }
+    }
+}
+
+// ===== Face Rotation =====
+function getCubiesOnFace(axis, layer) {
+    const result = [];
+    const vec = new THREE.Vector3();
+    for (const cubie of cubies) {
+        cubie.getWorldPosition(vec);
+        if (Math.round(vec[axis]) === layer) {
+            result.push(cubie);
+        }
+    }
+    return result;
+}
+
+function easeInOutCubic(t) {
+    return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+}
+
+function rotateFace(axis, layer, angle, duration = 250) {
+    return new Promise((resolve) => {
+        const faceCubies = getCubiesOnFace(axis, layer);
+        if (faceCubies.length === 0) { resolve(); return; }
+
+        const pivot = new THREE.Object3D();
+        scene.add(pivot);
+
+        for (const c of faceCubies) {
+            pivot.attach(c);
+        }
+
+        const startTime = performance.now();
+
+        function animate() {
+            const elapsed = performance.now() - startTime;
+            const progress = Math.min(elapsed / duration, 1);
+            const eased = easeInOutCubic(progress);
+            pivot.rotation[axis] = angle * eased;
+
+            if (progress < 1) {
+                requestAnimationFrame(animate);
+            } else {
+                pivot.rotation[axis] = angle;
+
+                // Reparent back to scene with updated transforms
+                for (const c of faceCubies) {
+                    scene.attach(c);
+                    // Snap positions to prevent floating point drift
+                    c.position.x = Math.round(c.position.x * 10) / 10;
+                    c.position.y = Math.round(c.position.y * 10) / 10;
+                    c.position.z = Math.round(c.position.z * 10) / 10;
+                }
+                scene.remove(pivot);
+                resolve();
+            }
+        }
+
+        animate();
+    });
+}
+
+// ===== Execute Move =====
+async function executeMove(name, duration = 250) {
+    if (isScrambling && !moveQueue.length) return; // scramble finished
+
+    const move = MOVES[name];
+    if (!move) return;
+
+    if (isAnimating) {
+        moveQueue.push({ name, duration });
+        return;
+    }
+
+    isAnimating = true;
+    controls.enabled = false;
+
+    await rotateFace(move.axis, move.layer, move.angle, duration);
+
+    if (!isScrambling) {
+        moveCount++;
+        updateMoveCounter();
+    }
+
+    isAnimating = false;
+    controls.enabled = true;
+
+    // Process queue
+    if (moveQueue.length > 0) {
+        const next = moveQueue.shift();
+        executeMove(next.name, next.duration);
+    }
+}
+
+// ===== Scramble =====
+function generateScramble(length = 22) {
+    const faces = ['R', 'L', 'U', 'D', 'F', 'B'];
+    const mods = ['', "'"];
+    const moves = [];
+    let lastFace = '';
+    for (let i = 0; i < length; i++) {
+        let face;
+        do { face = faces[Math.floor(Math.random() * faces.length)]; }
+        while (face === lastFace);
+        moves.push(face + mods[Math.floor(Math.random() * mods.length)]);
+        lastFace = face;
+    }
+    return moves;
+}
+
+async function doScramble() {
+    if (isAnimating || isScrambling) return;
+    isScrambling = true;
+    moveQueue = [];
+
+    const moves = generateScramble(22);
+    for (const m of moves) {
+        await executeMove(m, 120);
+    }
+    isScrambling = false;
+    moveCount = 0;
+    updateMoveCounter();
+}
+
+// ===== UI =====
+function updateMoveCounter() {
+    document.getElementById('move-count').textContent = moveCount;
+}
+
+// Button events
+document.querySelectorAll('.move-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        if (isScrambling) return;
+        executeMove(btn.dataset.move, 250);
+    });
+});
+
+document.getElementById('btn-scramble').addEventListener('click', doScramble);
+document.getElementById('btn-reset').addEventListener('click', () => {
+    if (isScrambling) return;
+    moveQueue = [];
+    buildCube();
+});
+
+// Keyboard shortcuts
+document.addEventListener('keydown', (e) => {
+    const key = e.key.toLowerCase();
+    const shift = e.shiftKey;
+
+    if (isScrambling) return;
+
+    const moveMap = {
+        'r': shift ? "R'" : "R",
+        'l': shift ? "L'" : "L",
+        'u': shift ? "U'" : "U",
+        'd': shift ? "D'" : "D",
+        'f': shift ? "F'" : "F",
+        'b': shift ? "B'" : "B",
+    };
+
+    const move = moveMap[key];
+    if (move) {
+        e.preventDefault();
+        executeMove(move, 250);
+    }
+
+    // Space for scramble
+    if (key === ' ' && !shift) {
+        e.preventDefault();
+        doScramble();
+    }
+});
+
+// ===== Resize =====
+window.addEventListener('resize', () => {
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+    renderer.setSize(w, h);
+});
+
+// ===== Render Loop =====
+function render() {
+    controls.update();
+    renderer.render(scene, camera);
+    requestAnimationFrame(render);
+}
+
+// ===== Initialize =====
+buildCube();
+render();
+
+console.log('🎲 魔方模拟器已启动！');
+console.log('快捷键: U D R L F B (加Shift逆时针) | Space = 打乱');
+</script>
+
+</body>
+</html>
